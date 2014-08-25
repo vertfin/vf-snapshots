@@ -26,12 +26,6 @@ Tests the emailing subsystem.
 
 Example: `snapshots test_email --emails=jon@jms-audioware.com`
 
-## Installation
-
-Install the gem via `gem install snapshots -S http://www.github.com/vertfin/snapshots`.
-
-You should then have the `snapshots` command available.  Cron it up.
-
 ## Contributing
 
 1. Fork it ( https://github.com/[my-github-username]/snapshots/fork )

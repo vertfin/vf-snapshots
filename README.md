@@ -26,6 +26,13 @@ Tests the emailing subsystem.
 
 Example: `vf-snapshots test_email --emails=jon@jms-audioware.com`
 
+## Installation
+
+1. Clone the repo: `git clone https://github.com/vertfin/vf-snapshots.git`
+2. Build the gem: `gem build vf-snapshots.gemspec`
+3. Install the gem, probably as root: `sudo gem install --local vf-snapshots-x.y.z.gem`
+4. Cron it up and have a cocktail.
+
 ## Contributing
 
 1. Fork it ( https://github.com/vertfin/vf-snapshots/fork )

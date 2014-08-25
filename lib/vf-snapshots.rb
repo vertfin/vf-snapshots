@@ -12,8 +12,6 @@ require 'vf-snapshots/volume'
 
 module VfSnapshots
 
-  Config = YAML.load_file("/etc/snapshots.yml")
-
   class Snapshots < Thor
 
     no_commands do
@@ -21,20 +19,26 @@ module VfSnapshots
         puts message if options[:verbose]
       end
 
+      def config
+        YAML.load_file(options[:config] || "/etc/vf-snapshots.yml")
+      end
+
       def for_each_aws_account
-        Config[:aws_accounts].each_pair do |account, credentials|
-          verbose "Setting account to #{account}"
+        config[:aws_accounts].each_pair do |account, credentials|
+          verbose "\nSetting account to #{account}"
           AWS.memoize do
-            yield account, AWS::EC2.new( credentials )
+            ec2 = AWS::EC2.new( credentials )
+            load_volumes account, ec2
+            yield account, ec2
           end
         end
       end
 
-      def load_volumes ec2
+      def load_volumes account, ec2
         @volumes = []
-        verbose Rainbow("Loading volumes").green
+        verbose Rainbow("Loading volumes for #{account}").green
         ec2.instances.filter('instance-state-name', 'running').each do |instance|
-          verbose Rainbow("  checking #{instance.id} for volumes").blue
+          verbose Rainbow("  Checking #{account} #{instance.id} for volumes").blue
           ec2.volumes.filter('attachment.instance-id', instance.id ).each do |volume|
             case volume.attachments.count
             when 0
@@ -63,7 +67,7 @@ module VfSnapshots
         if emails.length > 0          
           emails.each do |email|
             verbose "Sending mail to: #{email}"          
-            opts = Config[:mail].merge({:from => Config[:mail][:from], :to => email, :subject => subject, :body => body})
+            opts = config[:mail].merge({:from => Config[:mail][:from], :to => email, :subject => subject, :body => body})
             Pony.mail(opts)
           end
         end
@@ -72,11 +76,11 @@ module VfSnapshots
 
     desc 'create', 'create new snapshots of all mounted volumes in the configured AWS accounts'  
     option :emails
+    option :config
     option :dry_run, :type => :boolean
     option :verbose, :type => :boolean
     def create
       for_each_aws_account do |account, ec2|
-        load_volumes ec2
         @volumes.each do |volume|
           message = "Creating #{volume.current_snapshot_name}"
           if options[:dry_run]
@@ -92,6 +96,7 @@ module VfSnapshots
 
     desc 'verify', 'verify recent snapshots for all mounted volumes in the configured AWS accounts'
     option :emails
+    option :config
     option :verbose, :type => :boolean
     def verify
       messages = []
@@ -100,7 +105,6 @@ module VfSnapshots
       volume_count = 0
       volume_count_with_recent_snapshot = 0
       for_each_aws_account do |account, ec2|
-        load_volumes ec2
         volume_count += @volumes.count
         @volumes.each do |volume|
           vmsg = "Verifying current snapshot for #{volume.name}"

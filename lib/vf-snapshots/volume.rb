@@ -41,7 +41,9 @@ class Volume
   end
 
   def recent_snapshot_exists?(since=Time.now-25*SECONDS_IN_AN_HOUR)
-    most_recent_snapshot_date >= since
+    mrsd = most_recent_snapshot_date
+    return false if mrsd.is_a?(String) # crap, it's NEVER!
+    mrsd >= since
   end
 
 end

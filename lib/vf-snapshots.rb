@@ -75,10 +75,9 @@ module VfSnapshots
     end
 
     desc 'create', 'create new snapshots of all mounted volumes in the configured AWS accounts'  
-    option :emails
-    option :config
-    option :dry_run, :type => :boolean
-    option :verbose, :type => :boolean
+    option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
+    option :dry_run, :type => :boolean, :desc => "don't actually create a snapshot, but do everything else"
+    option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def create
       for_each_aws_account do |account, ec2|
         @volumes.each do |volume|
@@ -95,9 +94,9 @@ module VfSnapshots
     end
 
     desc 'verify', 'verify recent snapshots for all mounted volumes in the configured AWS accounts'
-    option :emails
-    option :config
-    option :verbose, :type => :boolean
+    option :emails, :desc => 'comma-separated list of email recipients of a status report.'
+    option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
+    option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def verify
       messages = []
       subject = 'AWS Snapshots'
@@ -138,7 +137,7 @@ module VfSnapshots
     end
 
     desc 'test_email', 'send a test email, you will want to pass the emails=xxx,yyy,zzz option for this to make any sense'
-    option :emails
+    option :emails, :desc => 'comma-separated list of email recipients of the test.'
     option :verbose, :type => :boolean
     def test_email
       puts Rainbow("\nThis command doesn't really make a lot of sense unless you provide some emails via --emails=xxx,yyy,zzz!\n").red unless options[:emails]

@@ -58,19 +58,22 @@ module VfSnapshots
       end
 
       def send_email subject, body
+
+        return if options[:no_emails]
+
         verbose "\n\nEMAIL SUBJECT: #{subject}"
         verbose body
         verbose "\n"
 
-        emails = options[:emails].to_s.split(',')
-
-        if emails.length > 0          
+        emails = ( options[:emails] || config[:mail][:recipients] ).to_s.split(',')
+        unless emails.empty?
           emails.each do |email|
-            verbose "Sending mail to: #{email}"          
-            opts = config[:mail].merge({:from => Config[:mail][:from], :to => email, :subject => subject, :body => body})
+            verbose "Sending mail to: #{email}" 
+            opts = {:from => config[:mail][:from], :to => email, :subject => subject, :body => body, :via => config[:mail][:via], :via_options => config[:mail][:via_options]}
             Pony.mail(opts)
           end
         end
+
       end
     end
 
@@ -94,7 +97,8 @@ module VfSnapshots
     end
 
     desc 'verify', 'verify recent snapshots for all mounted volumes in the configured AWS accounts'
-    option :emails, :desc => 'comma-separated list of email recipients of a status report.'
+    option :emails, :desc => 'comma-separated list of email recipients of a status report'
+    option :no_emails, :type => :boolean, :desc => 'suppress email output'
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def verify
@@ -113,7 +117,7 @@ module VfSnapshots
             verbose vmsg
           else
             vmsg = Rainbow("X #{account}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
-            messages << "#{account}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
+            messages << "  #{account}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
             puts vmsg
           end
         end     
@@ -136,11 +140,12 @@ module VfSnapshots
       send_email subject, body
     end
 
-    desc 'test_email', 'send a test email, you will want to pass the emails=xxx,yyy,zzz option for this to make any sense'
+    desc 'test_email', 'send a test email'
     option :emails, :desc => 'comma-separated list of email recipients of the test.'
+    option :no_emails, :type => :boolean, :desc => 'suppress email output'
+
     option :verbose, :type => :boolean
     def test_email
-      puts Rainbow("\nThis command doesn't really make a lot of sense unless you provide some emails via --emails=xxx,yyy,zzz!\n").red unless options[:emails]
       send_email 'This is a test email', "\n\nThis is a test email to confirm the AwsSnapshot gem bin can send email.\n"
       verbose "\n"
     end

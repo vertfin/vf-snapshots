@@ -4,6 +4,7 @@
 # email options are sent directly to the Pony gem (https://github.com/benprew/pony)
 :mail:
   :from: someone@somewhere.com
+  :recipients: jon@jms-audioware.com,someoneelse@somewhereelse.com
   :via: :smtp [ or :sendmail ]
   :via_options:
     :address: 'smtp.yourserver.com'

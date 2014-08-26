@@ -14,7 +14,7 @@ _example_: `vf-snapshots create --verbose --dry-run`
 
 ### verify
 
-Command confirms that there are recent snapshots for all volumes.  'Recent' is presently hardcoded as 'within the past 24 hours.'  The `verify` command takes an `--emails` option.
+Command confirms that there are recent snapshots for all volumes.  'Recent' is presently hardcoded as 'within the past 24 hours.'  The `verify` command takes an `--emails` option which will override the recipients specified in the configuration file.  It also takes a `--no-emails` option to suppress email output.
 
 _example_: `vf-snapshots verify --verbose --emails=someone@soewhere.com,someoneelse@somewhereelse.com,noone@nowhere.com`
 
@@ -22,7 +22,7 @@ As seen in the examples above, both 'create' and 'verify' commands take a --verb
 
 ### test_email
 
-Tests the emailing subsystem.
+Tests the emailing subsystem.  An --emails option can be provided; it will override the settings in the configuration file.
 
 Example: `vf-snapshots test_email --emails=jon@jms-audioware.com`
 

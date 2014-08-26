@@ -1,5 +1,5 @@
-# This is an example aws_snapshots.yml file.
-# The actual file should reside at /etc/aws_snapshots.yml
+# This is an example vf-snapshots.yml file.
+# The actual file should reside at /etc/vf-snapshots.yml
 
 # email options are sent directly to the Pony gem (https://github.com/benprew/pony)
 :mail:

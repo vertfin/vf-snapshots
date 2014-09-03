@@ -20,7 +20,11 @@ _example_: `vf-snapshots verify --verbose --emails=someone@soewhere.com,someonee
 
 As seen in the examples above, both 'create' and 'verify' commands take a --verbose option which outputs lots of stuff.  A --config option can also be passed if you wish to use or test a config file in a non-standard location.
 
-### test_email
+### show-snapshots
+
+### clone-instance
+
+### test-email
 
 Tests the emailing subsystem.  An --emails option can be provided; it will override the settings in the configuration file.
 

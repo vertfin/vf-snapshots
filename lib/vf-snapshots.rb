@@ -8,68 +8,39 @@ require 'yaml'
 require 'rainbow'
 require 'pony'
 
+require 'vf-snapshots/config'
+require 'vf-snapshots/account'
+require 'vf-snapshots/instance'
 require 'vf-snapshots/volume'
+require 'vf-snapshots/snapshot'
 
 module VfSnapshots
+
+  def self.verbose message
+    puts message if Config.options[:verbose]
+  end
+
+  def self.current_time_string
+    Time.now.strftime('%Y%m%d%H%M%S')
+  end
 
   class Snapshots < Thor
 
     no_commands do
-      def verbose message
-        puts message if options[:verbose]
-      end
-
-      def config
-        YAML.load_file(options[:config] || "/etc/vf-snapshots.yml")
-      end
-
-      def for_each_aws_account
-        config[:aws_accounts].each_pair do |account, credentials|
-          verbose "\nSetting account to #{account}"
-          AWS.memoize do
-            ec2 = AWS::EC2.new( credentials )
-            load_volumes account, ec2
-            yield account, ec2
-          end
-        end
-      end
-
-      def load_volumes account, ec2
-        @volumes = []
-        verbose Rainbow("Loading volumes for #{account}").green
-        ec2.instances.filter('instance-state-name', 'running').each do |instance|
-          verbose Rainbow("  Checking #{account} #{instance.id} for volumes").blue
-          ec2.volumes.filter('attachment.instance-id', instance.id ).each do |volume|
-            case volume.attachments.count
-            when 0
-              # this volume not attached to anything, not snapshoting
-            when 1
-              volume.attachments.each do |attachment|
-                verbose Rainbow("    adding #{volume.size.to_s}GB volume mounted at #{attachment.device.to_s}").white
-                instance = attachment.instance
-                @volumes << Volume.new(ec2, volume)
-              end  
-            else
-              raise "A volume has more than one attachment, that is impossible, my worldview has been shattered, and I am quitting now."
-            end
-          end
-        end
-        verbose "\n"
-      end
 
       def send_email subject, body
 
         return if options[:no_emails]
 
-        verbose "\n\nEMAIL SUBJECT: #{subject}"
-        verbose body
-        verbose "\n"
+        VfSnapshots::verbose "\n\nEMAIL SUBJECT: #{subject}"
+        VfSnapshots::verbose body
+        VfSnapshots::verbose "\n"
 
-        emails = ( options[:emails] || config[:mail][:recipients] ).to_s.split(',')
+        emails = VfSnapshots::Config.email_recipients
         unless emails.empty?
           emails.each do |email|
-            verbose "Sending mail to: #{email}" 
-            opts = {:from => config[:mail][:from], :to => email, :subject => subject, :body => body, :via => config[:mail][:via], :via_options => config[:mail][:via_options]}
+            VfSnapshots::verbose "Sending mail to: #{email}" 
+            opts = {:from => VfSnapshots::Config.mail[:from], :to => email, :subject => subject, :body => body, :via => VfSnapshots::Config.mail[:via], :via_options => VfSnapshots::Config.mail[:via_options]}
             Pony.mail(opts)
           end
         end
@@ -82,18 +53,19 @@ module VfSnapshots
     option :dry_run, :type => :boolean, :desc => "don't actually create a snapshot, but do everything else"
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def create
-      for_each_aws_account do |account, ec2|
-        @volumes.each do |volume|
+      VfSnapshots::Config.options = options
+      Account.for_each do |account, ec2|
+        account.volumes.each do |volume|
           message = "Creating #{volume.current_snapshot_name}"
           if options[:dry_run]
-            verbose "#{message} (dry run, not really creating)"
+            VfSnapshots::verbose "#{message} (dry run, not really creating)"
           else
-            verbose message
+            VfSnapshots::verbose message
             volume.create_snapshot
           end
         end
       end
-      verbose "\n"
+      VfSnapshots::verbose "\n"
     end
 
     desc 'verify', 'verify recent snapshots for all mounted volumes in the configured AWS accounts'
@@ -102,25 +74,28 @@ module VfSnapshots
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def verify
+      VfSnapshots::Config.options = options
       messages = []
       subject = 'AWS Snapshots'
       body = "Hi,\n\n"
       volume_count = 0
       volume_count_with_recent_snapshot = 0
-      for_each_aws_account do |account, ec2|
-        volume_count += @volumes.count
-        @volumes.each do |volume|
-          vmsg = "Verifying current snapshot for #{volume.name}"
-          if volume.recent_snapshot_exists?
-            volume_count_with_recent_snapshot += 1
-            vmsg = Rainbow("✓ #{vmsg}").green
-            verbose vmsg
-          else
-            vmsg = Rainbow("X #{account}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
-            messages << "  #{account}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
-            puts vmsg
-          end
-        end     
+      Account.for_each do |account|
+        AWS.memoize do
+          volume_count += account.volumes.count
+          account.volumes.each do |volume|
+            vmsg = "Verifying current snapshot for #{volume.name}"
+            if volume.recent_snapshot_exists?
+              volume_count_with_recent_snapshot += 1
+              vmsg = Rainbow("✓ #{vmsg}").green
+              VfSnapshots::verbose vmsg
+            else
+              vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
+              messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
+              puts vmsg
+            end
+          end     
+        end
       end
       if messages.empty?
         body << "Everything is fine, there are current snapshots for #{volume_count} volumes.\n\n"
@@ -140,6 +115,45 @@ module VfSnapshots
       send_email subject, body
     end
 
+    desc 'show-accounts', 'shows the currently configured accounts'
+    def show_accounts
+      puts "Accounts"
+      puts "--------"
+      puts Config.accounts.keys.join("\n")
+      puts
+    end
+
+    desc 'show-snapshots', 'show available snapshots for an instance'
+    option :account, :required => true, :desc => 'show snapshots for an instance'
+    option :name, :required => true, :desc => 'instance name'
+    option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
+
+    def show_snapshots
+      VfSnapshots::Config.options = options
+      account = Account.new(options[:account])
+      instance = account.find_instance_by_name(options[:name])
+      puts "ID\t\t#{Rainbow('START TIME').blue}\t\t#{Rainbow('DESC').yellow}"
+      instance.volumes.each do |volume|
+        volume.snapshots.each do |snapshot|
+          puts "#{snapshot.id}\t#{Rainbow(snapshot.start_time).blue}\t#{Rainbow(snapshot.description).yellow}"
+        end
+      end
+
+    end
+
+    desc 'clone-instance', 'clone a instance and its volumes'
+    option :verbose, :type => :boolean, :default => true
+    option :account, :required => true, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :name, :required => true, :desc => 'instance name'
+    option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
+    option :date
+    def clone_instance
+      VfSnapshots::Config.options = options
+      account = Account.new(options[:account])
+      instance = account.find_instance_by_name(options[:name])
+      instance.clone
+    end
+
     desc 'test_email', 'send a test email'
     option :emails, :desc => 'comma-separated list of email recipients of the test.'
     option :no_emails, :type => :boolean, :desc => 'suppress email output'
@@ -147,7 +161,7 @@ module VfSnapshots
     option :verbose, :type => :boolean
     def test_email
       send_email 'This is a test email', "\n\nThis is a test email to confirm the AwsSnapshot gem bin can send email.\n"
-      verbose "\n"
+      VfSnapshots::verbose "\n"
     end
 
   end

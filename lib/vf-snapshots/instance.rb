@@ -79,7 +79,7 @@ module VfSnapshots
 
       cloned_instance = new_ami.run_instance(a)
       VfSnapshots.verbose "New Instance: #{cloned_instance.inspect}"
-      name = "#{self.tags.to_h['Name']} Autoclone from snapshots #{VfSnapshots.current_time_string}"
+      name = "#{self.ec2_instance.tags.to_h['Name']} Autoclone from snapshots #{VfSnapshots.current_time_string}"
       VfSnapshots.verbose "Name: #{name}"
       cloned_instance.tags['Name'] = name
       

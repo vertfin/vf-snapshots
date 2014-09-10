@@ -17,10 +17,10 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = VfSnapshots::VERSION
 
-  gem.add_runtime_dependency "aws-sdk"
-  gem.add_runtime_dependency "thor"
-  gem.add_runtime_dependency "rainbow"
-  gem.add_runtime_dependency "pony"
+  gem.add_runtime_dependency "aws-sdk", '1.52.0'
+  gem.add_runtime_dependency "thor", '0.19.1'
+  gem.add_runtime_dependency "rainbow", '2.0.0'
+  gem.add_runtime_dependency "pony", '1.10'
 
 end
 

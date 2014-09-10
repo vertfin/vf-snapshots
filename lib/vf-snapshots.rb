@@ -12,7 +12,6 @@ require 'vf-snapshots/config'
 require 'vf-snapshots/account'
 require 'vf-snapshots/instance'
 require 'vf-snapshots/volume'
-require 'vf-snapshots/snapshot'
 
 module VfSnapshots
 
@@ -160,6 +159,7 @@ module VfSnapshots
 
     option :verbose, :type => :boolean
     def test_email
+      VfSnapshots::Config.options = options
       send_email 'This is a test email', "\n\nThis is a test email to confirm the AwsSnapshot gem bin can send email.\n"
       VfSnapshots::verbose "\n"
     end

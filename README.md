@@ -8,7 +8,7 @@ The envisioned use is to have two cronjobs, one for *create* and a second one, s
 
 ### create
 
-Creates new snapshots of all volumes currently mounted on running instances within the accounts specified in the config file.  Can take an addition option, `--dry-run`, which skips the actual snapshot creation step.
+Creates new snapshots of all volumes currently mounted on running instances within the accounts specified in the config file.  Can take an additional option, `--dry-run`, which skips the actual snapshot creation step.
 
 _example_: `vf-snapshots create --verbose --dry-run`
 
@@ -23,6 +23,13 @@ As seen in the examples above, both 'create' and 'verify' commands take a --verb
 ### show-snapshots
 
 ### clone-instance
+
+Pass --account and --name.  This only works on EBS backed instances, but it should make new volumes for your snapshots, reattach those volumes, and fire up a new instance in the correct region.  It will use the newest available snapshots unless you use the snapshot-filter option, which allows you to choose a specfic snapshot set to use.
+
+### prune
+
+Nuke old snapshots.  Takes some options.  --keep=x is the number of recent snapshots to keep.  Defauts to 10.
+Pass --keep-monthly=x to keep x snapshots from the first of the month.  Defauts to 3.
 
 ### test-email
 

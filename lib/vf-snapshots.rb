@@ -164,6 +164,57 @@ module VfSnapshots
       VfSnapshots::verbose "\n"
     end
 
+    desc 'prune', 'prune old snapshots'
+    option :keep, :desc => 'number of old snapshots to keep, not including monthlies', :default => 10
+    option :keep_monthly, :desc => 'number of old snapshots to keep from the 1st of the month', :default => 3
+    option :dry_run, :type => :boolean, :desc => "don't actually prune anything, just tell us what would be deleted"
+    option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"
+    option :verbose, :type => :boolean
+
+    def prune
+      VfSnapshots::Config.options = options
+      total_deleted = {}
+      Account.for_each do |account, ec2|
+        total_deleted[account.name] = 0
+        VfSnapshots::verbose "\n"
+        VfSnapshots::verbose "ACCOUNT: #{account.name}"
+        account.volumes.each do |volume|
+          dailies = []
+          monthlies = []
+          volume.snapshots.each do |snapshot|
+            # determine if this is 'our' snapshot
+            # by checking for timestamp at start of desc.
+            # TODO use a dedicated tag
+            if (/^(\d{6})(\d{2})(\d{6})\s/ =~ snapshot.description) || (options[:old_format] && /^(\d{4})-(\d{2})-(\d{2})\s/ =~ snapshot.description)
+              if $2 == '01' # we got a monthly
+                monthlies << snapshot
+              else
+                dailies << snapshot
+              end            
+            end
+          end
+          dailies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
+          monthlies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
+          tbe = dailies.slice(options[:keep],99999).to_a + monthlies.slice(options[:keep_monthly],99999).to_a
+
+          VfSnapshots::verbose "#{volume.name} | #{tbe.length} for deletion"
+          total_deleted[account.name] += tbe.length
+          if options[:dry_run]
+            VfSnapshots::verbose "Not deleting, --dry-run:"
+            VfSnapshots::verbose tbe.collect(&:description).inspect
+          else
+            tbe.each do |s|
+              s.delete
+            end
+          end
+        end
+        VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
+      end
+      VfSnapshots::verbose "\n"
+      VfSnapshots::verbose "Total deletions: #{ total_deleted.values.inject{|sum,x| sum + x } }"
+      VfSnapshots::verbose "\n"
+
+    end
   end
 
 end

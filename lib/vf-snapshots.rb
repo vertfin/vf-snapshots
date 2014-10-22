@@ -195,7 +195,7 @@ module VfSnapshots
           end
           dailies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
           monthlies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
-          tbe = dailies.slice(options[:keep],99999).to_a + monthlies.slice(options[:keep_monthly],99999).to_a
+          tbe = dailies.slice(options[:keep].to_i,99999).to_a + monthlies.slice(options[:keep_monthly].to_i,99999).to_a
 
           VfSnapshots::verbose "#{volume.name} | #{tbe.length} for deletion"
           total_deleted[account.name] += tbe.length

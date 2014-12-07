@@ -77,9 +77,11 @@ module VfSnapshots
       messages = []
       subject = 'AWS Snapshots'
       body = "Hi,\n\n"
+      details = ''
       volume_count = 0
       volume_count_with_recent_snapshot = 0
       Account.for_each do |account|
+        details << "\nAccount: #{account.name}\n"
         AWS.memoize do
           volume_count += account.volumes.count
           account.volumes.each do |volume|
@@ -88,25 +90,29 @@ module VfSnapshots
               volume_count_with_recent_snapshot += 1
               vmsg = Rainbow("✓ #{vmsg}").green
               VfSnapshots::verbose vmsg
+              details << "  ok: #{volume.name}\n"
             else
               vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
               messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
+              details << "  XX: #{volume.name}\n"
               puts vmsg
             end
           end     
         end
       end
       if messages.empty?
-        body << "Everything is fine, there are current snapshots for #{volume_count} volumes.\n\n"
+        body << "Everything is fine, there are current snapshots for #{volume_count} volumes.\n"
 
         subject << ' completed OK'
+        body << details + "\n\n"
         body << "Thanks,\n\n"
         body << "The friendly AWS Snapshotter service."
       else
         subject << ' -- ACHTUNG!!! THERE ARE PROBLEMS!!!!!'
         body << "There should be recent snapshots for #{volume_count} volumes, and there #{volume_count_with_recent_snapshot == 1 ? 'was' : 'were'} only #{volume_count_with_recent_snapshot}.  Here are some more details:\n\n"
         body << messages.join("\n")
-        body << "\n\n"
+        body << "\n"
+        body << details + "\n\n"
         body << "Sorry for the bad news,\n\n"
         body << "The concerned AWS Snapshotter service."
       end

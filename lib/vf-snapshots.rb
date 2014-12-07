@@ -106,7 +106,7 @@ module VfSnapshots
         subject << ' completed OK'
         body << details + "\n\n"
         body << "Thanks,\n\n"
-        body << "The friendly AWS Snapshotter service."
+        body << "The friendly AWS Snapshotter service.\n\n"
       else
         subject << ' -- ACHTUNG!!! THERE ARE PROBLEMS!!!!!'
         body << "There should be recent snapshots for #{volume_count} volumes, and there #{volume_count_with_recent_snapshot == 1 ? 'was' : 'were'} only #{volume_count_with_recent_snapshot}.  Here are some more details:\n\n"
@@ -114,7 +114,7 @@ module VfSnapshots
         body << "\n"
         body << details + "\n\n"
         body << "Sorry for the bad news,\n\n"
-        body << "The concerned AWS Snapshotter service."
+        body << "The concerned AWS Snapshotter service.\n\n"
       end
 
       send_email subject, body

@@ -47,7 +47,8 @@ module VfSnapshots
                    architecture: ec2_instance.architecture.to_s,
                    kernel_id: ec2_instance.kernel_id,
                    root_device_name: root_device,
-                   block_device_mappings: { root_device => { :snapshot_id => system_volume.most_recent_snapshot.id } }
+                   block_device_mappings: { root_device => { :snapshot_id => system_volume.most_recent_snapshot.id } },
+                   virtualization_type: ec2_instance.virtualization_type.to_s,
       }
       a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 

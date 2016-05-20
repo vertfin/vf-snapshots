@@ -78,8 +78,11 @@ module VfSnapshots
         block_device_mappings: bdm
 
       }
-      a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
+      a.each_pair do |k,v|
+        a.delete(k) if v.nil?
+      end
 
+      a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 
       cloned_instance = new_ami.run_instance(a)
       VfSnapshots.verbose "New Instance: #{cloned_instance.inspect}"

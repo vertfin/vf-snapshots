@@ -72,7 +72,6 @@ module VfSnapshots
         count: 1,
         instance_type: ec2_instance.instance_type,
         kernel_id: ec2_instance.kernel_id,
-        root_device_name: root_device,
         security_groups: ec2_instance.security_groups,
         availability_zone: ec2_instance.availability_zone,
         block_device_mappings: bdm

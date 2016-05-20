@@ -51,6 +51,9 @@ module VfSnapshots
       }
       a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 
+      a.each_pair do |k,v|
+        a.delete(k) if v.nil?
+      end
       new_ami = ec2.images.create(a)
 
       t = 0
@@ -69,6 +72,7 @@ module VfSnapshots
         count: 1,
         instance_type: ec2_instance.instance_type,
         kernel_id: ec2_instance.kernel_id,
+        root_device_name: root_device,
         security_groups: ec2_instance.security_groups,
         availability_zone: ec2_instance.availability_zone,
         block_device_mappings: bdm
@@ -82,7 +86,7 @@ module VfSnapshots
       name = "#{self.ec2_instance.tags.to_h['Name']} Autoclone from snapshots #{VfSnapshots.current_time_string}"
       VfSnapshots.verbose "Name: #{name}"
       cloned_instance.tags['Name'] = name
-      
+
       new_ami.deregister
     end
 

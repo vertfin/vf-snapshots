@@ -27,7 +27,7 @@ module VfSnapshots
               VfSnapshots::verbose Rainbow("    adding #{ec2_volume.size.to_s}GB volume mounted at #{attachment.device.to_s}").white
               instance = attachment.instance
               @volumes << Volume.new(ec2_volume, ec2)
-            end  
+            end
           else
             raise "A volume has more than one attachment, that is impossible, my worldview has been shattered, and I am quitting now."
           end
@@ -48,7 +48,7 @@ module VfSnapshots
       Instance.new(_instances.first, ec2)
     end
 
-    def ec2     
+    def ec2
       VfSnapshots.verbose "\nSetting account to #{name}" if @ec2.nil?
       @ec2 ||= AWS::EC2.new( credentials )
     end
@@ -61,9 +61,17 @@ module VfSnapshots
 
     end
 
-    def self.for_each
-      Config.accounts.keys.each do |account_name|       
-        yield Account.new(account_name)
+    def self.for_each(account_name=nil)
+      if account_name
+        begin
+          yield Account.new(account_name)
+        rescue
+          puts "Account not found: #{account_name}"
+        end
+      else
+        Config.accounts.keys.each do |account_name|
+          yield Account.new(account_name)
+        end
       end
     end
 

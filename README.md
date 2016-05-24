@@ -54,3 +54,38 @@ Example: `vf-snapshots test_email --emails=jon@jms-audioware.com`
 
 ## TODO: pruning
 
+## IAM Profile
+
+Here's an IAM profile with (hopefully) just enough perms for this all to work.
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1463757857347",
+            "Action": [
+                "ec2:AttachVolume",
+                "ec2:CreateImage",
+                "ec2:CreateSnapshot",
+                "ec2:CreateVolume",
+                "ec2:CreateTags",
+                "ec2:DeleteSnapshot",
+                "ec2:DeregisterImage",
+                "ec2:DescribeInstanceAttribute",
+                "ec2:DescribeInstanceStatus",
+                "ec2:DescribeInstances",
+                "ec2:DescribeImages",
+                "ec2:DescribeSnapshotAttribute",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeTags",
+                "ec2:DescribeVolumeAttribute",
+                "ec2:DescribeVolumeStatus",
+                "ec2:DescribeVolumes",
+                "ec2:RegisterImage",
+                "ec2:RunInstances"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}

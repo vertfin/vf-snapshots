@@ -38,7 +38,7 @@ module VfSnapshots
         emails = VfSnapshots::Config.email_recipients
         unless emails.empty?
           emails.each do |email|
-            VfSnapshots::verbose "Sending mail to: #{email}" 
+            VfSnapshots::verbose "Sending mail to: #{email}"
             opts = {:from => VfSnapshots::Config.mail[:from], :to => email, :subject => subject, :body => body, :via => VfSnapshots::Config.mail[:via], :via_options => VfSnapshots::Config.mail[:via_options]}
             Pony.mail(opts)
           end
@@ -47,13 +47,14 @@ module VfSnapshots
       end
     end
 
-    desc 'create', 'create new snapshots of all mounted volumes in the configured AWS accounts'  
+    desc 'create', 'create new snapshots of all mounted volumes in the configured AWS accounts'
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :dry_run, :type => :boolean, :desc => "don't actually create a snapshot, but do everything else"
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
+    option :account, :required => true, :desc => 'specify account'
     def create
       VfSnapshots::Config.options = options
-      Account.for_each do |account, ec2|
+      Account.for_each(options[:account]) do |account, ec2|
         account.volumes.each do |volume|
           message = "Creating #{volume.current_snapshot_name}"
           if options[:dry_run]
@@ -72,6 +73,7 @@ module VfSnapshots
     option :no_emails, :type => :boolean, :desc => 'suppress email output'
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
+    option :account, :required => true, :desc => 'specify account'
     def verify
       VfSnapshots::Config.options = options
       messages = []
@@ -80,7 +82,7 @@ module VfSnapshots
       details = ''
       volume_count = 0
       volume_count_with_recent_snapshot = 0
-      Account.for_each do |account|
+      Account.for_each(options[:account]) do |account|
         details << "\nAccount: #{account.name}\n"
         AWS.memoize do
           volume_count += account.volumes.count
@@ -97,7 +99,7 @@ module VfSnapshots
               details << "  XX: #{volume.name}\n"
               puts vmsg
             end
-          end     
+          end
         end
       end
       if messages.empty?
@@ -128,11 +130,23 @@ module VfSnapshots
       puts
     end
 
+    desc 'show-instances', 'show available instance names for an account'
+    option :account, :required => true, :desc => 'specify account'
+    def show_instances
+      VfSnapshots::Config.options = options
+      account = Account.new(options[:account])
+      puts "Instance ID\tStatus\t\tName"
+      puts "-----------\r------\r\r------------"
+      account.ec2.instances.each do |instance|
+        puts "#{instance.id}\t#{instance.status}\t\t#{instance.tags.Name}"
+      end
+      puts
+    end
+
     desc 'show-snapshots', 'show available snapshots for an instance'
     option :account, :required => true, :desc => 'show snapshots for an instance'
     option :name, :required => true, :desc => 'instance name'
     option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
-
     def show_snapshots
       VfSnapshots::Config.options = options
       account = Account.new(options[:account])
@@ -143,7 +157,6 @@ module VfSnapshots
           puts "#{snapshot.id}\t#{Rainbow(snapshot.start_time).blue}\t#{Rainbow(snapshot.description).yellow}"
         end
       end
-
     end
 
     desc 'clone-instance', 'clone a instance and its volumes'
@@ -180,7 +193,7 @@ module VfSnapshots
     def prune
       VfSnapshots::Config.options = options
       total_deleted = {}
-      Account.for_each do |account, ec2|
+      Account.for_each(options[:account]) do |account|
         total_deleted[account.name] = 0
         VfSnapshots::verbose "\n"
         VfSnapshots::verbose "ACCOUNT: #{account.name}"
@@ -196,7 +209,7 @@ module VfSnapshots
                 monthlies << snapshot
               else
                 dailies << snapshot
-              end            
+              end
             end
           end
           dailies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }

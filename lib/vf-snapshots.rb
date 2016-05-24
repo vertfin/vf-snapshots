@@ -51,7 +51,7 @@ module VfSnapshots
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :dry_run, :type => :boolean, :desc => "don't actually create a snapshot, but do everything else"
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
-    option :account, :required => true, :desc => 'specify account'
+    option :account, :desc => 'specify account'
     def create
       VfSnapshots::Config.options = options
       Account.for_each(options[:account]) do |account, ec2|
@@ -73,7 +73,7 @@ module VfSnapshots
     option :no_emails, :type => :boolean, :desc => 'suppress email output'
     option :config, :desc => 'alternate file for config, default is /etc/vf-snapshots.yml.  example file is in gem source at config/vf-snapshots.yml.example'
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
-    option :account, :required => true, :desc => 'specify account'
+    option :account, :desc => 'specify account'
     def verify
       VfSnapshots::Config.options = options
       messages = []

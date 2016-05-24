@@ -63,9 +63,9 @@ module VfSnapshots
 
     def self.for_each(account_name=nil)
       if account_name
-        begin
+        if Config.accounts.has_key?(account_name)
           yield Account.new(account_name)
-        rescue
+        else
           puts "Account not found: #{account_name}"
         end
       else

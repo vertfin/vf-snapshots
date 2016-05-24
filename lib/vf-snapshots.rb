@@ -134,13 +134,15 @@ module VfSnapshots
     option :account, :required => true, :desc => 'specify account'
     def show_instances
       VfSnapshots::Config.options = options
-      account = Account.new(options[:account])
-      puts "Instance ID\tStatus\t\tName"
-      puts "-----------\t------\t\t------------"
-      account.ec2.instances.each do |instance|
-        puts "#{instance.id}\t#{instance.status}\t\t#{instance.tags.Name}"
+      Account.for_each(options[:account]) do |account|
+        puts "Account: #{account.name}"
+        puts "Instance ID\tStatus\t\tName"
+        puts "-----------\t------\t\t------------"
+        account.ec2.instances.each do |instance|
+          puts "#{instance.id}\t#{instance.status}\t\t#{instance.tags.Name}"
+        end
+        puts
       end
-      puts
     end
 
     desc 'show-snapshots', 'show available snapshots for an instance'

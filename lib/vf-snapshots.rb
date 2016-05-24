@@ -136,7 +136,7 @@ module VfSnapshots
       VfSnapshots::Config.options = options
       account = Account.new(options[:account])
       puts "Instance ID\tStatus\t\tName"
-      puts "-----------\r------\r\r------------"
+      puts "-----------\t------\t\t------------"
       account.ec2.instances.each do |instance|
         puts "#{instance.id}\t#{instance.status}\t\t#{instance.tags.Name}"
       end

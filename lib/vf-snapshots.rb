@@ -110,7 +110,7 @@ module VfSnapshots
             end
           rescue AWS::EC2::Errors::AuthFailure
             details << "  INVALID AUTHENTICATION\n"
-            messages << "  #{account.name} AWS Authentication Error"
+            messages << "  #{account.name}: AWS Authentication Error"
             vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
             puts vmsg
           end

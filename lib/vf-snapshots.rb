@@ -168,7 +168,7 @@ module VfSnapshots
           account.ec2.instances.each do |instance|
             line = []
             fields.values.collect { |f| eval(f) }.each_with_index do |f,idx|
-              widths[idx] ||= [ widths[idx].to_i, f.length ].max
+              widths[idx] = [ widths[idx].to_i, f.length ].max
               line << f
             end
             output << line
@@ -202,12 +202,27 @@ module VfSnapshots
       VfSnapshots::Config.options = options
       account = Account.new(options[:account])
       instance = account.find_instance_by_name(options[:name])
-      puts "ID\t\t#{Rainbow('START TIME').blue}\t\t#{Rainbow('DESC').yellow}"
+
+#          widths = widths.collect { |w| "%-#{w.to_s}s" }.join(' ') + "\n"
+#          printf widths, *fields.keys
+      widths = [ 20,20,20 ]
+      data = []
       instance.volumes.each do |volume|
         volume.snapshots.each do |snapshot|
-          puts "#{snapshot.id}\t#{Rainbow(snapshot.start_time).blue}\t#{Rainbow(snapshot.description).yellow}"
+          line = [ snapshot.id, Rainbow(snapshot.start_time).blue, Rainbow(snapshot.description).yellow ]
+          data << line
+          line.each_with_index do |l,idx|
+            widths[idx] = [ widths[idx], l.length ].max
+          end
         end
       end
+
+      printf "\n%-#{widths[0].to_s}s %-#{widths[1].to_s}s %-#{widths[2].to_s}s\n", 'ID', Rainbow('START TIME').blue, Rainbow('DESC').yellow
+
+      data.each do |line|
+        printf "%-#{widths[0].to_s}s %-#{widths[1].to_s}s %-#{widths[2].to_s}s\n", *line
+      end
+      puts
     end
 
     desc 'clone-instance', 'clone a instance and its volumes'

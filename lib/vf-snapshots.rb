@@ -55,14 +55,18 @@ module VfSnapshots
     def create
       VfSnapshots::Config.options = options
       Account.for_each(options[:account]) do |account, ec2|
-        account.volumes.each do |volume|
-          message = "Creating #{volume.current_snapshot_name}"
-          if options[:dry_run]
-            VfSnapshots::verbose "#{message} (dry run, not really creating)"
-          else
-            VfSnapshots::verbose message
-            volume.create_snapshot
+        begin
+          account.volumes.each do |volume|
+            message = "Creating #{volume.current_snapshot_name}"
+            if options[:dry_run]
+              VfSnapshots::verbose "#{message} (dry run, not really creating)"
+            else
+              VfSnapshots::verbose message
+              volume.create_snapshot
+            end
           end
+        rescue AWS::EC2::Errors::AuthFailure
+          # silently fail, a notice will be sent with 'verify'
         end
       end
       VfSnapshots::verbose "\n"
@@ -75,50 +79,62 @@ module VfSnapshots
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     option :account, :desc => 'specify account'
     def verify
-      VfSnapshots::Config.options = options
-      messages = []
-      subject = 'AWS Snapshots'
-      body = "Hi,\n\n"
-      details = ''
-      volume_count = 0
-      volume_count_with_recent_snapshot = 0
-      Account.for_each(options[:account]) do |account|
-        details << "\nAccount: #{account.name}\n"
-        AWS.memoize do
-          volume_count += account.volumes.count
-          account.volumes.each do |volume|
-            vmsg = "Verifying current snapshot for #{volume.name}"
-            if volume.recent_snapshot_exists?
-              volume_count_with_recent_snapshot += 1
-              vmsg = Rainbow("✓ #{vmsg}").green
-              VfSnapshots::verbose vmsg
-              details << "  ok: #{volume.name}\n"
-            else
-              vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
-              messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
-              details << "  XX: #{volume.name}\n"
-              puts vmsg
+      begin
+        VfSnapshots::Config.options = options
+        messages = []
+        subject = 'AWS Snapshots'
+        body = "Hi,\n\n"
+        details = ''
+        volume_count = 0
+        volume_count_with_recent_snapshot = 0
+        Account.for_each(options[:account]) do |account|
+          begin
+            details << "\nAccount: #{account.name}\n"
+            AWS.memoize do
+              volume_count += account.volumes.count
+              account.volumes.each do |volume|
+                vmsg = "Verifying current snapshot for #{volume.name}"
+                if volume.recent_snapshot_exists?
+                  volume_count_with_recent_snapshot += 1
+                  vmsg = Rainbow("✓ #{vmsg}").green
+                  VfSnapshots::verbose vmsg
+                  details << "  ok: #{volume.name}\n"
+                else
+                  vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
+                  messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
+                  details << "  XX: #{volume.name}\n"
+                  puts vmsg
+                end
+              end
             end
+          rescue AWS::EC2::Errors::AuthFailure
+            details << "  INVALID AUTHENTICATION"
+            messages << "  Snapshots AWS Auth Error for Account: #{account.name}"
+            vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").red
+            puts vmsg
           end
         end
-      end
-      if messages.empty?
-        body << "Everything is fine, there are current snapshots for #{volume_count} volumes.\n"
+        if messages.empty?
+          body << "Everything is fine, there are current snapshots for #{volume_count} volumes.\n"
 
-        subject << ' completed OK'
-        body << details + "\n\n"
-        body << "Thanks,\n\n"
-        body << "The friendly AWS Snapshotter service.\n\n"
-      else
-        subject << ' -- ACHTUNG!!! THERE ARE PROBLEMS!!!!!'
-        body << "There should be recent snapshots for #{volume_count} volumes, and there #{volume_count_with_recent_snapshot == 1 ? 'was' : 'were'} only #{volume_count_with_recent_snapshot}.  Here are some more details:\n\n"
-        body << messages.join("\n")
-        body << "\n"
-        body << details + "\n\n"
-        body << "Sorry for the bad news,\n\n"
-        body << "The concerned AWS Snapshotter service.\n\n"
+          subject << ' completed OK'
+          body << details + "\n\n"
+          body << "Thanks,\n\n"
+          body << "The friendly AWS Snapshotter service.\n\n"
+        else
+          subject << ' -- ACHTUNG!!! THERE ARE PROBLEMS!!!!!'
+          body << "There should be recent snapshots for #{volume_count} volumes, and there #{volume_count_with_recent_snapshot == 1 ? 'was' : 'were'} only #{volume_count_with_recent_snapshot}.  Here are some more details:\n\n"
+          body << messages.join("\n")
+          body << "\n"
+          body << details + "\n\n"
+          body << "Sorry for the bad news,\n\n"
+          body << "The concerned AWS Snapshotter service.\n\n"
+        end
+      rescue
+        subject = 'AWS Snapshots -- DANGER WILL ROBINSON!!!'
+        body = "Something has gone really wrong here.\n\n"
+        body << $!.inspect
       end
-
       send_email subject, body
     end
 
@@ -135,13 +151,45 @@ module VfSnapshots
     def show_instances
       VfSnapshots::Config.options = options
       Account.for_each(options[:account]) do |account|
-        puts "Account: #{account.name}"
-        puts "Instance ID\tStatus\t\tName"
-        puts "-----------\t------\t\t------------"
-        account.ec2.instances.each do |instance|
-          puts "#{instance.id}\t#{instance.status}\t\t#{instance.tags.Name}"
+        begin
+          # printf "%-20s %s\n", value_name, value
+          fields = {
+            'Instance ID' => 'instance.id',
+            'Status'      => 'instance.status',
+            'Name'        => 'instance.tags.Name',
+            'Public IP'   => 'instance.public_ip_address',
+            'Private IP'  => 'instance.private_ip_address',
+          }
+          puts "Account: #{account.name}"
+          puts
+          output = []
+          widths = []
+          account.ec2.instances.each do |instance|
+            line = []
+            fields.values.collect { |f| eval(f) }.each_with_index do |f,idx|
+              widths[idx] ||= [ widths[idx].to_i, f.length ].max
+              line << f
+            end
+            output << line
+          end
+
+          div = ''
+          widths.each do |width|
+            div << '-'*width
+            div << ' '
+          end
+          widths = widths.collect { |w| "%-#{w.to_s}s" }.join(' ') + "\n"
+          printf widths, *fields.keys
+          puts div
+          output.each do |line|
+            printf widths, *line
+          end
+          puts
+
+        rescue AWS::EC2::Errors::AuthFailure
+          puts "INVALID AUTHENTICATION"
+          puts
         end
-        puts
       end
     end
 
@@ -196,40 +244,48 @@ module VfSnapshots
       VfSnapshots::Config.options = options
       total_deleted = {}
       Account.for_each(options[:account]) do |account|
-        total_deleted[account.name] = 0
-        VfSnapshots::verbose "\n"
-        VfSnapshots::verbose "ACCOUNT: #{account.name}"
-        account.volumes.each do |volume|
-          dailies = []
-          monthlies = []
-          volume.snapshots.each do |snapshot|
-            # determine if this is 'our' snapshot
-            # by checking for timestamp at start of desc.
-            # TODO use a dedicated tag
-            if (/^(\d{6})(\d{2})(\d{6})\s/ =~ snapshot.description) || (options[:old_format] && /^(\d{4})-(\d{2})-(\d{2})\s/ =~ snapshot.description)
-              if $2 == '01' # we got a monthly
-                monthlies << snapshot
-              else
-                dailies << snapshot
+        begin
+          total_deleted[account.name] = 0
+          VfSnapshots::verbose "\n"
+          VfSnapshots::verbose "ACCOUNT: #{account.name}"
+          account.volumes.each do |volume|
+            dailies = []
+            monthlies = []
+            volume.snapshots.each do |snapshot|
+              # determine if this is 'our' snapshot
+              # by checking for timestamp at start of desc.
+              # TODO use a dedicated tag
+              if (/^(\d{6})(\d{2})(\d{6})\s/ =~ snapshot.description) || (options[:old_format] && /^(\d{4})-(\d{2})-(\d{2})\s/ =~ snapshot.description)
+                if $2 == '01' # we got a monthly
+                  monthlies << snapshot
+                else
+                  dailies << snapshot
+                end
+              end
+            end
+            dailies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
+            monthlies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
+            tbe = dailies.slice(options[:keep].to_i,99999).to_a + monthlies.slice(options[:keep_monthly].to_i,99999).to_a
+
+            VfSnapshots::verbose "#{volume.name} | #{tbe.length} for deletion"
+            total_deleted[account.name] += tbe.length
+            if options[:dry_run]
+              VfSnapshots::verbose "Not deleting, --dry-run:"
+              VfSnapshots::verbose tbe.collect(&:description).inspect
+            else
+              tbe.each do |s|
+                begin
+                  s.delete
+                rescue
+                  puts "Error deleting snapshot: #{$!}"
+                end
               end
             end
           end
-          dailies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
-          monthlies.sort! { |a,b| b.description.slice(0,14) <=> a.description.slice(0,14) }
-          tbe = dailies.slice(options[:keep].to_i,99999).to_a + monthlies.slice(options[:keep_monthly].to_i,99999).to_a
-
-          VfSnapshots::verbose "#{volume.name} | #{tbe.length} for deletion"
-          total_deleted[account.name] += tbe.length
-          if options[:dry_run]
-            VfSnapshots::verbose "Not deleting, --dry-run:"
-            VfSnapshots::verbose tbe.collect(&:description).inspect
-          else
-            tbe.each do |s|
-              s.delete
-            end
-          end
+          VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
+        rescue AWS::EC2::Errors::AuthFailure
+          VfSnapshots::verbose "INVALID AUTHENTICATION"
         end
-        VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
       end
       VfSnapshots::verbose "\n"
       VfSnapshots::verbose "Total deletions: #{ total_deleted.values.inject{|sum,x| sum + x } }"

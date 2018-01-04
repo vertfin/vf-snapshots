@@ -11,7 +11,7 @@ module VfSnapshots
           .sort { |a,b| b.start_time <=> a.start_time }
       end
       if filter = Config.options[:snapshot_filter]
-        @snapshots = @snapshots.select { |s| s.description.to_s.index(filter)==0 }
+        @snapshots = @snapshots.select { |s| !s.description.to_s.index(filter).nil? }
       end
       @snapshots
     end

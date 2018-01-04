@@ -50,7 +50,7 @@ module VfSnapshots
                    block_device_mappings: { root_device => { :snapshot_id => system_volume.most_recent_snapshot.id } },
                    virtualization_type: ec2_instance.virtualization_type.to_s,
       }
-      a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
+      a[:ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 
       a.each_pair do |k,v|
         a.delete(k) if v.nil?
@@ -74,15 +74,16 @@ module VfSnapshots
         instance_type: ec2_instance.instance_type,
         kernel_id: ec2_instance.kernel_id,
         security_groups: ec2_instance.security_groups,
-        availability_zone: ec2_instance.availability_zone,
-        block_device_mappings: bdm
-
+        availability_zone: ec2_instance.availability_zone
       }
+
+      a[:block_device_mappings] = bdm unless bdm.empty?
+
       a.each_pair do |k,v|
         a.delete(k) if v.nil?
       end
 
-      a[ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
+      a[:ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 
       cloned_instance = new_ami.run_instance(a)
       VfSnapshots.verbose "New Instance: #{cloned_instance.inspect}"

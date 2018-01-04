@@ -14,7 +14,7 @@ module VfSnapshots
     def volumes
       return @volumes if @volumes
       @volumes = []
-      VfSnapshots::verbose Rainbow("Loading volumes for #{name}").green
+      VfSnapshots::verbose Rainbow("\nLoading volumes for #{name}").green
       Instance.get_running(self).each do |instance|
         VfSnapshots::verbose Rainbow("  Checking #{name} #{instance.ec2_instance.id} for volumes").blue
         @volumes += instance.volumes # .each do |volume|

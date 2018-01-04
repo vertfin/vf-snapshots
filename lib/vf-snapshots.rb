@@ -111,7 +111,7 @@ module VfSnapshots
           rescue AWS::EC2::Errors::AuthFailure
             details << "  INVALID AUTHENTICATION\n"
             messages << "  #{account.name} AWS Authentication Error"
-            vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
+            vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").indianred
             puts vmsg
           end
         end

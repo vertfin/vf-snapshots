@@ -66,7 +66,8 @@ module VfSnapshots
             end
           end
         rescue AWS::EC2::Errors::AuthFailure
-          # silently fail, a notice will be sent with 'verify'
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
+          puts vmsg
         end
       end
       VfSnapshots::verbose "\n"
@@ -108,9 +109,9 @@ module VfSnapshots
               end
             end
           rescue AWS::EC2::Errors::AuthFailure
-            details << "  INVALID AUTHENTICATION"
-            messages << "  Snapshots AWS Auth Error for Account: #{account.name}"
-            vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").red
+            details << "  INVALID AUTHENTICATION\n"
+            messages << "  #{account.name} AWS Authentication Error"
+            vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
             puts vmsg
           end
         end
@@ -284,7 +285,8 @@ module VfSnapshots
           end
           VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
         rescue AWS::EC2::Errors::AuthFailure
-          VfSnapshots::verbose "INVALID AUTHENTICATION"
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
+          puts vmsg
         end
       end
       VfSnapshots::verbose "\n"

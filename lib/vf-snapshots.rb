@@ -66,7 +66,7 @@ module VfSnapshots
             end
           end
         rescue AWS::EC2::Errors::AuthFailure
-          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
           puts vmsg
         end
       end
@@ -300,7 +300,7 @@ module VfSnapshots
           end
           VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
         rescue AWS::EC2::Errors::AuthFailure
-          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").orange
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
           puts vmsg
         end
       end

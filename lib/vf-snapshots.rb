@@ -1,4 +1,4 @@
-# encoding: UTF-8
+# encoding: utf-8
 
 require 'vf-snapshots/version'
 
@@ -168,7 +168,7 @@ module VfSnapshots
           account.ec2.instances.each do |instance|
             line = []
             fields.values.collect { |f| eval(f) }.each_with_index do |f,idx|
-              widths[idx] = [ widths[idx].to_i, f.length ].max
+              widths[idx] = [ widths[idx].to_i, f.respond_to?(:length) ? f.length : 20 ].max
               line << f
             end
             output << line
@@ -255,7 +255,6 @@ module VfSnapshots
     option :dry_run, :type => :boolean, :desc => "don't actually prune anything, just tell us what would be deleted"
     option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"
     option :verbose, :type => :boolean
-
     def prune
       VfSnapshots::Config.options = options
       total_deleted = {}
@@ -309,6 +308,60 @@ module VfSnapshots
       VfSnapshots::verbose "\n"
 
     end
-  end
 
+
+    desc 'show-orphans', 'show snapshots not associated with volumes'
+    # option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"
+    option :verbose, :type => :boolean
+    option :account, :required => true, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :delete, :type => :boolean
+    def show_orphans
+      VfSnapshots::Config.options = options
+      orphans = []
+      Account.for_each(options[:account]) do |account|
+        begin
+          VfSnapshots::verbose "\n"
+          VfSnapshots::verbose "ACCOUNT: #{account.name}"
+          # puts account.volumes.collect { |v| v.attachment.inspect }
+          VfSnapshots::verbose "\nGetting all volumes for account, might be slow..."
+          all_volume_ids = account.volumes.collect { |v| v.ec2_volume.id }
+          VfSnapshots::verbose "All Volume IDs: #{all_volume_ids.inspect}"
+
+          VfSnapshots::verbose "\nGetting all snapshots for account, might be slow..."
+          all_snapshots = account.snapshots
+          VfSnapshots::verbose "\nSnapshot count: #{all_snapshots.count}"
+
+          VfSnapshots::verbose "\nFinding orphans..."
+          orphan_snapshots = all_snapshots.select { |s| !all_volume_ids.include?(s.volume_id) }
+          VfSnapshots::verbose "\nFound orphans (#{orphan_snapshots.length}), getting details.\n"
+          results = []
+          orphan_snapshots.each do |orphan_snapshot|
+            results << {
+                         snapshot: orphan_snapshot,
+                         snapshot_id: orphan_snapshot.id,
+                         #snapshot_name: orphan_snapshot.tags.to_h['Name'],
+                         volume_id: orphan_snapshot.volume_id,
+                         #volume_name: orphan_snapshot.volume.tags.to_h['Name']
+            }
+          end
+          results.sort { |a,b| a[:volume_id] <=> b[:volume_id] }.each_with_index do |orphan_snapshot,idx|
+            puts "[#{idx}] volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+            if options[:delete]
+              begin
+                orphan_snapshot[:snapshot].delete
+              rescue
+                puts "[#{idx}] error deleting snapshot: #{$!}"
+              end
+            end
+          end
+
+        rescue AWS::EC2::Errors::AuthFailure
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
+          puts vmsg
+        end
+      end
+      VfSnapshots::verbose "\n"
+
+    end
+  end
 end

@@ -11,6 +11,20 @@ module VfSnapshots
       Config.accounts[@name]
     end
 
+    def snapshots
+      return @snapshots if @snapshots
+      VfSnapshots::verbose Rainbow("\nLoading snapshots for #{name}").green
+
+      @snapshots = ec2.snapshots
+        .with_owner( 'self' )
+        .filter( 'status', 'completed' )
+        .sort { |a,b| b.start_time <=> a.start_time }
+      if filter = Config.options[:snapshot_filter]
+        @snapshots = @snapshots.select { |s| !s.description.to_s.index(filter).nil? }
+      end
+      @snapshots
+    end
+
     def volumes
       return @volumes if @volumes
       @volumes = []

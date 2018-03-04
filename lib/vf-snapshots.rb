@@ -351,7 +351,7 @@ module VfSnapshots
               begin
                 orphan_snapshot[:snapshot].delete
                 puts "[#{idx}] #{orphan_snapshot[:start_date]} DELETED volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
-                deleted_count
+                deleted_count += 1
               rescue
               puts "[#{idx}] #{orphan_snapshot[:start_date]} ERROR DELETING: volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
                 puts "[#{idx}] ERROR: #{$!}"

@@ -342,6 +342,7 @@ module VfSnapshots
                          #snapshot_name: orphan_snapshot.tags.to_h['Name'],
                          volume_id: orphan_snapshot.volume_id,
                          #volume_name: orphan_snapshot.volume.tags.to_h['Name']
+                         start_date: orphan_snapshot.start_time.to_date,
             }
           end
           deleted_count = 0
@@ -349,13 +350,14 @@ module VfSnapshots
             if options[:delete]
               begin
                 orphan_snapshot[:snapshot].delete
-                puts "[#{idx}] DELETED volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+                puts "[#{idx}] #{orphan_snapshot[:start_date]} DELETED volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
                 deleted_count
               rescue
-                puts "[#{idx}] ERROR deleting snapshot: #{$!}"
+              puts "[#{idx}] #{orphan_snapshot[:start_date]} ERROR DELETING: volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+                puts "[#{idx}] ERROR: #{$!}"
               end
             else
-              puts "[#{idx}] volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+              puts "[#{idx}] #{orphan_snapshot[:start_date]} volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
             end
           end
 

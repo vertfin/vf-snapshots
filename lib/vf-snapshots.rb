@@ -344,16 +344,25 @@ module VfSnapshots
                          #volume_name: orphan_snapshot.volume.tags.to_h['Name']
             }
           end
+          deleted_count = 0
           results.sort { |a,b| a[:volume_id] <=> b[:volume_id] }.each_with_index do |orphan_snapshot,idx|
-            puts "[#{idx}] volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
             if options[:delete]
               begin
                 orphan_snapshot[:snapshot].delete
+                puts "[#{idx}] DELETED volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+                deleted_count
               rescue
-                puts "[#{idx}] error deleting snapshot: #{$!}"
+                puts "[#{idx}] ERROR deleting snapshot: #{$!}"
               end
+            else
+              puts "[#{idx}] volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
             end
           end
+
+          puts
+          puts "Total Snapshots: #{all_snapshots.length}"
+          puts "Orphaned Snapshots: #{results.length}"
+          puts "Deleted Snapshots: #{deleted_count}"
 
         rescue AWS::EC2::Errors::AuthFailure
           vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta

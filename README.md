@@ -52,17 +52,14 @@ Example: `vf-snapshots test_email --emails=jon@jms-audioware.com`
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create a new Pull Request
 
-## TODO: pruning
-
 ## IAM Profile
 
-Here's an IAM profile with (hopefully) just enough perms for this all to work.
+Here's an IAM profile with enough perms for this all to work.
 
 {
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "Stmt1463757857347",
             "Action": [
                 "ec2:AttachVolume",
                 "ec2:CreateImage",
@@ -70,12 +67,14 @@ Here's an IAM profile with (hopefully) just enough perms for this all to work.
                 "ec2:CreateVolume",
                 "ec2:CreateTags",
                 "ec2:DeleteSnapshot",
+                "ec2:DeleteTags",
                 "ec2:DeregisterImage",
                 "ec2:DescribeInstanceAttribute",
                 "ec2:DescribeInstanceStatus",
                 "ec2:DescribeInstances",
                 "ec2:DescribeImages",
                 "ec2:DescribeSnapshotAttribute",
+                "ec2:ModifySnapshotAttribute",
                 "ec2:DescribeSnapshots",
                 "ec2:DescribeTags",
                 "ec2:DescribeVolumeAttribute",
@@ -83,6 +82,22 @@ Here's an IAM profile with (hopefully) just enough perms for this all to work.
                 "ec2:DescribeVolumes",
                 "ec2:RegisterImage",
                 "ec2:RunInstances"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}
+
+Here's an IAM profile with minimal perms for the backup account.
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "ec2:CopySnapshot",
+                "ec2:DescribeSnapshots"
             ],
             "Effect": "Allow",
             "Resource": "*"

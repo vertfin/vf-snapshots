@@ -3,17 +3,23 @@
 require 'vf-snapshots/version'
 
 require 'thor'
-require 'aws'
+require 'aws-sdk'
 require 'yaml'
 require 'rainbow'
 require 'pony'
+require 'byebug'
 
 require 'vf-snapshots/config'
 require 'vf-snapshots/account'
 require 'vf-snapshots/instance'
 require 'vf-snapshots/volume'
+require 'vf-snapshots/backup'
 
 module VfSnapshots
+
+  # a regex to detect snapshots that originated with us
+  DESC_REGEX = /\d{14}\ i-/
+  DEFAULT_BACKUP_DAYS = 5
 
   def self.verbose message
     puts message if Config.options[:verbose]
@@ -65,7 +71,7 @@ module VfSnapshots
               volume.create_snapshot
             end
           end
-        rescue AWS::EC2::Errors::AuthFailure
+        rescue Aws::EC2::Errors::AuthFailure
           vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
           puts vmsg
         end
@@ -91,24 +97,26 @@ module VfSnapshots
         Account.for_each(options[:account]) do |account|
           begin
             details << "\nAccount: #{account.name}\n"
-            AWS.memoize do
-              volume_count += account.volumes.count
-              account.volumes.each do |volume|
-                vmsg = "Verifying current snapshot for #{volume.name}"
-                if volume.recent_snapshot_exists?
-                  volume_count_with_recent_snapshot += 1
-                  vmsg = Rainbow("✓ #{vmsg}").green
-                  VfSnapshots::verbose vmsg
-                  details << "  ok: #{volume.name}\n"
-                else
-                  vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
-                  messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
-                  details << "  XX: #{volume.name}\n"
-                  puts vmsg
-                end
+            #Aws.memoize do
+            volume_count += account.volumes.count
+            account.volumes.each do |volume|
+              vmsg = "Verifying current snapshot for #{volume.name}"
+              if volume.recent_snapshot_exists?
+                volume_count_with_recent_snapshot += 1
+                vmsg = Rainbow("✓ #{vmsg}").green
+                VfSnapshots::verbose vmsg
+                details << "  ok: #{volume.name}\n"
+                details << "      #{volume.other_details}\n"
+              else
+                vmsg = Rainbow("X #{account.name}: FAILURE #{vmsg}; most recent was #{volume.most_recent_snapshot_date.to_s}").red
+                messages << "  #{account.name}: No recent snapshot found for #{volume.name}, most recent was #{volume.most_recent_snapshot_date.to_s}"
+                details << "  XX: #{volume.name}\n"
+                puts vmsg
               end
             end
-          rescue AWS::EC2::Errors::AuthFailure
+            #end
+          rescue Aws::EC2::Errors::AuthFailure
+            puts "Error: #{$!}"
             details << "  INVALID AUTHENTICATION\n"
             messages << "  #{account.name}: AWS Authentication Error"
             vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
@@ -131,7 +139,9 @@ module VfSnapshots
           body << "Sorry for the bad news,\n\n"
           body << "The concerned AWS Snapshotter service.\n\n"
         end
-      rescue
+      rescue => exception
+        puts "Error: #{$!}"
+        puts exception.backtrace
         subject = 'AWS Snapshots -- DANGER WILL ROBINSON!!!'
         body = "Something has gone really wrong here.\n\n"
         body << $!.inspect
@@ -156,8 +166,8 @@ module VfSnapshots
           # printf "%-20s %s\n", value_name, value
           fields = {
             'Instance ID' => 'instance.id',
-            'Status'      => 'instance.status',
-            'Name'        => 'instance.tags.Name',
+            'Status'      => 'instance.state.name',
+            'Name'        => "instance.tags.select{|tag| tag.key == 'Name'}.first.value",
             'Public IP'   => 'instance.public_ip_address',
             'Private IP'  => 'instance.private_ip_address',
           }
@@ -187,7 +197,7 @@ module VfSnapshots
           end
           puts
 
-        rescue AWS::EC2::Errors::AuthFailure
+        rescue Aws::EC2::Errors::AuthFailure
           puts "INVALID AUTHENTICATION"
           puts
         end
@@ -298,7 +308,7 @@ module VfSnapshots
             end
           end
           VfSnapshots::verbose "Total account deletions: #{ total_deleted[account.name].to_s }"
-        rescue AWS::EC2::Errors::AuthFailure
+        rescue Aws::EC2::Errors::AuthFailure
           vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
           puts vmsg
         end
@@ -308,7 +318,6 @@ module VfSnapshots
       VfSnapshots::verbose "\n"
 
     end
-
 
     desc 'show-orphans', 'show snapshots not associated with volumes'
     # option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"
@@ -353,7 +362,7 @@ module VfSnapshots
                 puts "[#{idx}] #{orphan_snapshot[:start_date]} DELETED volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
                 deleted_count += 1
               rescue
-              puts "[#{idx}] #{orphan_snapshot[:start_date]} ERROR DELETING: volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
+                puts "[#{idx}] #{orphan_snapshot[:start_date]} ERROR DELETING: volume_id:#{orphan_snapshot[:volume_id]} snapshot_id:#{orphan_snapshot[:snapshot_id]}"
                 puts "[#{idx}] ERROR: #{$!}"
               end
             else
@@ -365,8 +374,36 @@ module VfSnapshots
           puts "Total Snapshots: #{all_snapshots.length}"
           puts "Orphaned Snapshots: #{results.length}"
           puts "Deleted Snapshots: #{deleted_count}"
+          puts
 
-        rescue AWS::EC2::Errors::AuthFailure
+        rescue Aws::EC2::Errors::AuthFailure
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
+          puts vmsg
+        end
+      end
+      VfSnapshots::verbose "\n"
+
+    end
+
+    desc 'backup', 'sync snapshots with backup account, if provided'
+    option :verbose, :type => :boolean
+    option :show, :type => :boolean, :desc => 'just show the backup info'
+    option :account, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
+    def backup
+      VfSnapshots::Config.options = options
+      orphans = []
+      Account.for_each(options[:account]) do |account|
+        begin
+          VfSnapshots::verbose "\n"
+          VfSnapshots::verbose "ACCOUNT: #{account.name}"
+
+          if account.has_backup?
+            backup = Backup.new(account)
+            backup.enumerate_missing
+          end
+
+        rescue Aws::EC2::Errors::AuthFailure
           vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
           puts vmsg
         end
@@ -375,4 +412,5 @@ module VfSnapshots
 
     end
   end
+
 end

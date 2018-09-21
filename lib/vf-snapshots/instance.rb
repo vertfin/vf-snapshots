@@ -9,7 +9,12 @@ module VfSnapshots
     end
 
     def volumes
-      @volumes ||= ec2.volumes.filter('attachment.instance-id', ec2_instance.id ).collect { |ec2_volume|
+      @volumes ||= ec2.volumes(
+        { filters: [
+            { name: 'attachment.instance-id', values: [ ec2_instance.id ] },
+          ]
+        }
+      ).collect { |ec2_volume|
         VfSnapshots::verbose Rainbow("    adding #{ec2_volume.size.to_s}GB volume mounted at #{ec2_volume.attachments.first.device.to_s}").white
 
         Volume.new(ec2_volume, ec2)
@@ -95,7 +100,12 @@ module VfSnapshots
     end
 
     def self.get_running account
-      account.ec2.instances.filter('instance-state-name', 'running').collect { |ec2_instance| Instance.new(ec2_instance, account.ec2) }
+      account.ec2.instances(
+        { filters: [
+            { name: 'instance-state-name', values: [ 'running' ] },
+          ]
+        }
+      ).collect { |ec2_instance| Instance.new(ec2_instance, account.ec2) }
     end
 
   end

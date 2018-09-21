@@ -7,18 +7,32 @@ module VfSnapshots
       @name = account_name
     end
 
+    def region
+      Config.accounts[@name][:backup][:region] || 'us-east-1'
+    end
+
     def credentials
-      Config.accounts[@name]
+      { access_key_id: Config.accounts[@name][:access_key_id],
+        secret_access_key: Config.accounts[@name][:secret_access_key],
+        region: region,
+      }
+    end
+
+    def account_id
+      Config.accounts[@name][:account_id]
     end
 
     def snapshots
       return @snapshots if @snapshots
       VfSnapshots::verbose Rainbow("\nLoading snapshots for #{name}").green
 
-      @snapshots = ec2.snapshots
-        .with_owner( 'self' )
-        .filter( 'status', 'completed' )
-        .sort { |a,b| b.start_time <=> a.start_time }
+      @snapshots = ec2.snapshots(
+        owner_ids:['self'],
+        filters: [
+          { name: 'status', values: [ 'completed' ] },
+        ]
+      ).sort { |a,b| b.start_time <=> a.start_time }
+
       if filter = Config.options[:snapshot_filter]
         @snapshots = @snapshots.select { |s| !s.description.to_s.index(filter).nil? }
       end
@@ -54,9 +68,13 @@ module VfSnapshots
     end
 
     def find_instance_by_name instance_name
-      _instances = ec2.instances
-        .filter('instance-state-name', 'running')
-        .with_tag('Name', instance_name)
+      _instances = ec2.instances(
+        { filters: [
+            { name: 'instance-state-name', values: [ 'running' ] },
+            { name: 'tag:Name', values: [ instance_name ] },
+          ]
+        }
+      )
       raise "Multiple instances found with name: #{instance_name}" if _instances.count > 1
       raise "No instance found with name: #{instance_name}" if _instances.count == 0
       Instance.new(_instances.first, ec2)
@@ -64,7 +82,7 @@ module VfSnapshots
 
     def ec2
       VfSnapshots.verbose "\nSetting account to #{name}" if @ec2.nil?
-      @ec2 ||= AWS::EC2.new( credentials )
+      @ec2 ||= Aws::EC2::Resource.new( credentials )
     end
 
     def create_snapshots
@@ -87,6 +105,10 @@ module VfSnapshots
           yield Account.new(account_name)
         end
       end
+    end
+
+    def has_backup?
+      Config.accounts[name][:backup]
     end
 
   end

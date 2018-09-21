@@ -93,6 +93,7 @@ module VfSnapshots
         end
       rescue Aws::EC2::Errors::ResourceLimitExceeded
         VfSnapshots.verbose "\nThrottled!"
+        exit
       end
     end
 

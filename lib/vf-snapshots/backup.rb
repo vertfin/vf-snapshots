@@ -88,7 +88,7 @@ module VfSnapshots
                          destination_region: region
           )
           puts "Sleeping..."
-          sleep 15
+          sleep 1
           puts "Woke!"
         end
       rescue Aws::EC2::Errors::ResourceLimitExceeded

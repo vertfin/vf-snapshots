@@ -8,7 +8,7 @@ module VfSnapshots
     end
 
     def region
-      Config.accounts[@name][:backup][:region] || 'us-east-1'
+      Config.accounts[@name][:region] || 'us-east-1'
     end
 
     def credentials

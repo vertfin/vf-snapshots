@@ -22,6 +22,6 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "thor", '0.19.1'
   gem.add_runtime_dependency "rainbow", '2.0.0'
   gem.add_runtime_dependency "pony", '1.10'
-  gem.add_runtime_dependency "byebug"
+  gem.add_runtime_dependency "byebug", '9.0.6'
 
 end

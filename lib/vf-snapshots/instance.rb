@@ -46,40 +46,73 @@ module VfSnapshots
       VfSnapshots.verbose "Other(s): #{data_volumes.collect(&:name)}"
 
       root_device = system_volume.ec2_volume.attachments.first.device
+      name = ec2_instance.tags.find { |tag| tag.key=='Name' }.value
 
       a = {
-                   name: "TEMPORARY Cloned AMI from #{system_volume.name} #{VfSnapshots.current_time_string}",
-                   architecture: ec2_instance.architecture.to_s,
-                   kernel_id: ec2_instance.kernel_id,
-                   root_device_name: root_device,
-                   block_device_mappings: { root_device => { :snapshot_id => system_volume.most_recent_snapshot.id } },
-                   virtualization_type: ec2_instance.virtualization_type.to_s,
+        # dry_run: true,
+        name: "TEMPORARY Cloned AMI from #{system_volume.name} #{VfSnapshots.current_time_string}",
+        architecture: ec2_instance.architecture.to_s,
+        kernel_id: ec2_instance.kernel_id,
+        ramdisk_id: ec2_instance.ramdisk_id,
+        root_device_name: root_device,
+        virtualization_type: ec2_instance.virtualization_type,
+        block_device_mappings: [
+          {
+            device_name: root_device,
+            ebs: {
+              snapshot_id: system_volume.most_recent_snapshot.id,
+            }
+          }
+        ]
       }
-      a[:ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
 
       a.each_pair do |k,v|
         a.delete(k) if v.nil?
       end
-      new_ami = ec2.images.create(a)
+
+      new_ami_id = ec2.client.register_image(a).image_id
+      new_ami = nil
 
       t = 0
-      while ec2.images[new_ami.id].nil? || new_ami.state.to_s != 'available' do
+      while new_ami.nil? || new_ami.state.to_s != 'available' do
         sleep 1
+        new_ami ||= ec2.images( filters: [ { name: 'image-id', values: [new_ami_id] } ] ).first
         t += 1
         VfSnapshots.verbose "[#{t}] Waiting for AMI to become available..."
       end
 
-      bdm = {}
+      bdm = []
       data_volumes.each do |dv|
-        bdm[dv.ec2_volume.attachments.first.device] = { :snapshot_id => dv.most_recent_snapshot.id }
+        bdm << {
+          device_name: dv.ec2_volume.attachments.first.device,
+          ebs: {
+            snapshot_id: dv.most_recent_snapshot.id,
+          },
+        }
       end
 
+      name = "#{name} Autoclone from snapshots #{VfSnapshots.current_time_string}"
       a = {
-        count: 1,
+        # dry_run: true,
+        image_id: new_ami_id,
+        min_count: 1,
+        max_count: 1,
         instance_type: ec2_instance.instance_type,
         kernel_id: ec2_instance.kernel_id,
-        security_groups: ec2_instance.security_groups,
-        availability_zone: ec2_instance.availability_zone
+        security_group_ids: ec2_instance.security_groups.collect(&:group_id),
+        placement: ec2_instance.placement,
+        tag_specifications: [
+          {
+            resource_type: "instance",
+            tags: [
+                {
+                  key: "Name",
+                  value: name,
+                },
+            ],
+          },
+        ]
+
       }
 
       a[:block_device_mappings] = bdm unless bdm.empty?
@@ -88,14 +121,14 @@ module VfSnapshots
         a.delete(k) if v.nil?
       end
 
-      a[:ramdisk_id] = ec2_instance.ramdisk_id if ec2_instance.ramdisk_id
+      [:ramdisk_id, :subnet_id].each do |f|
+        v = ec2_instance.send(f)
+        a[f] = v unless v.nil?
+      end
 
-      cloned_instance = new_ami.run_instance(a)
-      VfSnapshots.verbose "New Instance: #{cloned_instance.inspect}"
-      name = "#{self.ec2_instance.tags.to_h['Name']} Autoclone from snapshots #{VfSnapshots.current_time_string}"
-      VfSnapshots.verbose "Name: #{name}"
-      cloned_instance.tags['Name'] = name
+      cloned_instance = ec2.create_instances(a)
 
+      VfSnapshots.verbose "New Instance Name: #{name}"
       new_ami.deregister
     end
 

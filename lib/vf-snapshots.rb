@@ -386,8 +386,7 @@ module VfSnapshots
     end
 
     desc 'backup', 'sync snapshots with backup account, if provided'
-    option :verbose, :type => :boolean
-    option :show, :type => :boolean, :desc => 'just show the backup info'
+    option :dry_run, :type => :boolean, :desc => 'just show the backup info'
     option :account, :desc => 'account name, use show-accounts to view all configured accounts'
     option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
     def backup
@@ -400,7 +399,12 @@ module VfSnapshots
 
           if account.has_backup?
             backup = Backup.new(account)
-            backup.enumerate_missing
+            missing = backup.enumerate_missing
+            missing.each do |m|
+              VfSnapshots::verbose m.description
+            end
+            VfSnapshots::verbose "SNAPSHOTS TO COPY: #{missing.length}"
+            backup.copy_snapshots! missing unless options[:dry_run]
           end
 
         rescue Aws::EC2::Errors::AuthFailure
@@ -411,6 +415,69 @@ module VfSnapshots
       VfSnapshots::verbose "\n"
 
     end
-  end
 
+    # at present backup prune casts a wide net, and deletes ALL snapshots
+    # whose descriptions match the basic regex
+    # on the backup account that are older than backup[:days].  be careful!
+    desc 'backup-prune', 'prune backup account, if provided'
+    option :dry_run, :type => :boolean, :desc => 'just show the backup snapshots to be pruned'
+    option :account, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
+    def backup_prune
+      VfSnapshots::Config.options = options
+      orphans = []
+      Account.for_each(options[:account]) do |account|
+        begin
+          VfSnapshots::verbose "\n"
+          VfSnapshots::verbose "ACCOUNT: #{account.name}"
+
+          if account.has_backup?
+            backup = Backup.new(account)
+            prunees = backup.enumerate_snapshots_to_be_pruned
+            VfSnapshots::verbose "\n"
+            prunees.each do |snap|
+              VfSnapshots::verbose snap.description
+            end
+            VfSnapshots::verbose "SNAPSHOTS TO PRUNE: #{prunees.length}"
+            VfSnapshots::verbose "\n"
+            # puts "----------NOT DELETING----------"  unless options[:dry_run]
+            backup.delete! prunees unless options[:dry_run]
+          end
+
+        rescue Aws::EC2::Errors::AuthFailure
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
+          puts vmsg
+        end
+      end
+      VfSnapshots::verbose "\n"
+
+    end
+
+    # at present backup prune casts a wide net, and deletes ALL snapshots
+    # whose descriptions match the basic regex
+    # on the backup account that are older than backup[:days].  be careful!
+    desc 'backup-tag', 'tag snapshots in backup account'
+    option :account, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :verbose, :type => :boolean, :desc => 'tell me more stuff!'
+    def backup_tag
+      VfSnapshots::Config.options = options
+      orphans = []
+      Account.for_each(options[:account]) do |account|
+        begin
+          VfSnapshots::verbose "\n"
+          VfSnapshots::verbose "ACCOUNT: #{account.name}"
+
+          if account.has_backup?
+            backup = Backup.new(account)
+            backup.tag_accounts!
+          end
+
+        rescue Aws::EC2::Errors::AuthFailure
+          vmsg = Rainbow("X #{account.name}: INVALID AUTHENTICATION").magenta
+          puts vmsg
+        end
+      end
+      VfSnapshots::verbose "\n"
+    end
+  end
 end

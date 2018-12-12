@@ -48,6 +48,8 @@ module VfSnapshots
         owner_ids: ['self'],
         filters: [
           { name: 'status', values: [ 'completed' ] },
+          # once all of our backup snapshots have account tags, we can
+          { name: 'tag:Account', values: [ account.name ] },
         ]
       ).sort { |a,b| b.start_time <=> a.start_time }
 
@@ -57,7 +59,7 @@ module VfSnapshots
       @snapshots
     end
 
-    # enumerate the missing snapshots
+    # enumerate the missing snapshots and return
     def enumerate_missing
       account_snapshots = account.snapshots
       backed_up_snapshots = self.snapshots
@@ -67,13 +69,29 @@ module VfSnapshots
         new_desc = "#{account.name} #{snapshot.description}"
         missing << snapshot if !backed_up_snapshot_descriptions.include?(new_desc) && (VfSnapshots::DESC_REGEX =~ snapshot.description) && snapshot.start_time.to_date > Date.today-( Config.accounts[account.name][:backup][:days] || VfSnapshots::DEFAULT_BACKUP_DAYS )
       end
-      if missing.count > 0
-        VfSnapshots.verbose "\n#{missing.count} to copy, here we go."
+      missing
+    end
+
+    # enumberate the missing snapshots and return
+    def copy_snapshots! snaps
+      # account_snapshots = account.snapshots
+      # backed_up_snapshots = self.snapshots
+      # backed_up_snapshot_descriptions = backed_up_snapshots.collect { |bus| bus.description }
+      if snaps.count > 0
+        VfSnapshots.verbose "\n#{snaps.count} to copy, here we go."
       else
         VfSnapshots.verbose "\nNothing to copy."
       end
       begin
-        missing.each do |snapshot|
+        tags = { tags: [
+                   {
+                     key: "Account",
+                     value: account.name,
+                   },
+                 ]
+               }
+
+        snaps.each do |snapshot|
           VfSnapshots.verbose "\nCopying #{account.name} #{snapshot.description}"
 
           # modify the source snapshot to share with the backup account
@@ -85,11 +103,12 @@ module VfSnapshots
           copy_response = shared_snapshot.copy(
                          description: new_desc,
                          source_region: region,
-                         destination_region: region
+                         destination_region: region,
           )
-          puts "Sleeping..."
-          sleep 1
-          puts "Woke!"
+          ec2.snapshot(copy_response.snapshot_id).create_tags tags
+          # puts "Sleeping..."
+          # sleep 1
+          # puts "Woke!"
         end
       rescue Aws::EC2::Errors::ResourceLimitExceeded
         VfSnapshots.verbose "\nThrottled!"
@@ -97,9 +116,73 @@ module VfSnapshots
       end
     end
 
-    def copy_missing
 
+    # enumerate the snapshots to be pruned
+    def enumerate_snapshots_to_be_pruned
+      backed_up_snapshots = self.snapshots
+      backed_up_snapshot_descriptions = backed_up_snapshots.collect { |bus| bus.description }
+      prunees = []
+      before = Date.today - ( Config.accounts[account.name][:backup][:days] || VfSnapshots::DEFAULT_BACKUP_DAYS )
+      backed_up_snapshots.each do |snapshot|
+        old_desc = snapshot.description.sub("#{account.name} ",'')
+        account_name = snapshot.description.split(VfSnapshots::DESC_REGEX).first.chop
+        if account_name == account.name
+          if /^(\d{14})/.match(old_desc)
+            ts = Time.parse($1).to_date
+            prunees << snapshot if (VfSnapshots::DESC_REGEX =~ old_desc) && ts < before
+          end
+        end
+      end
+      prunees
     end
+
+    # enumberate the missing snapshots and return
+    def delete! snaps
+      if snaps.count > 0
+        VfSnapshots.verbose "\n#{snaps.count} to delete, here we go."
+      else
+        VfSnapshots.verbose "\nNothing to delete."
+      end
+      begin
+        snaps.each do |snapshot|
+          VfSnapshots.verbose "Deleting #{account.name} #{snapshot.description}"
+          snapshot.delete
+          # puts "Sleeping..."
+          # sleep 1
+          # puts "Woke!"
+        end
+      rescue Aws::EC2::Errors::ResourceLimitExceeded
+        VfSnapshots.verbose "\nThrottled!"
+        exit
+      end
+    end
+
+    # probably temporary, just need to get the backup snapshot repo up to
+    # snuff.  we really want an Account tag in the backup repo.
+    def tag_accounts!
+      snapshots = ec2.snapshots( owner_ids: ['self'],
+                                 #filters: [
+                                 #  { name: 'tag:Account', values: [] ] },
+                                 #]
+
+                               )
+      snapshots.each do |snapshot|
+        if account_name = snapshot.description.split(VfSnapshots::DESC_REGEX).first.chop
+          if account_name == account.name
+            tags = { tags: [
+                       {
+                         key: "Account",
+                         value: account_name,
+                       },
+                     ]
+                   }
+            puts "#{snapshot.description} -> { account: #{account_name} }"
+            snapshot.create_tags tags
+          end
+        end
+      end
+    end
+
 
   end
 

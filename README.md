@@ -98,6 +98,7 @@ Here's an IAM profile with minimal perms for the backup account.
             "Action": [
                 "ec2:CopySnapshot",
                 "ec2:DescribeSnapshots"
+                # "ec2:CreateTags" # for pruning, you don't want this on main account!
             ],
             "Effect": "Allow",
             "Resource": "*"

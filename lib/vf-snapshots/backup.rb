@@ -91,8 +91,8 @@ module VfSnapshots
                  ]
                }
 
-        snaps.each do |snapshot|
-          VfSnapshots.verbose "\nCopying #{account.name} #{snapshot.description}"
+        snaps.each_with_index do |snapshot,idx|
+          VfSnapshots.verbose "\nCopying #{account.name} #{snapshot.description} [#{idx+1} of #{snaps.length}]"
 
           # modify the source snapshot to share with the backup account
           snapshot.modify_attribute(attribute:'createVolumePermission', operation_type: 'add', user_ids: [ account.account_id ], create_volume_permission: { add: [{ user_id: account_id }] } )
@@ -144,8 +144,8 @@ module VfSnapshots
         VfSnapshots.verbose "\nNothing to delete."
       end
       begin
-        snaps.each do |snapshot|
-          VfSnapshots.verbose "Deleting #{account.name} #{snapshot.description}"
+        snaps.each_with_index do |snapshot,idx|
+          VfSnapshots.verbose "Deleting #{account.name} #{snapshot.description} [#{idx+1} of #{snaps.length}]"
           snapshot.delete
           # puts "Sleeping..."
           # sleep 1
@@ -176,7 +176,7 @@ module VfSnapshots
                        },
                      ]
                    }
-            puts "#{snapshot.description} -> { account: #{account_name} }"
+            puts "#{snapshot.description} -> { account: '#{account_name}' }"
             snapshot.create_tags tags
           end
         end

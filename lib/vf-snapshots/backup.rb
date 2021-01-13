@@ -48,7 +48,6 @@ module VfSnapshots
         owner_ids: ['self'],
         filters: [
           { name: 'status', values: [ 'completed' ] },
-          # once all of our backup snapshots have account tags, we can
           { name: 'tag:Account', values: [ account.name ] },
         ]
       ).sort { |a,b| b.start_time <=> a.start_time }
@@ -92,7 +91,7 @@ module VfSnapshots
                }
 
         snaps.each_with_index do |snapshot,idx|
-          VfSnapshots.verbose "\nCopying #{account.name} #{snapshot.description} [#{idx+1} of #{snaps.length}]"
+          VfSnapshots.verbose "\n[#{idx+1} of #{snaps.length}] Copying #{account.name} #{snapshot.description}"
 
           # modify the source snapshot to share with the backup account
           snapshot.modify_attribute(attribute:'createVolumePermission', operation_type: 'add', user_ids: [ account.account_id ], create_volume_permission: { add: [{ user_id: account_id }] } )
@@ -145,7 +144,7 @@ module VfSnapshots
       end
       begin
         snaps.each_with_index do |snapshot,idx|
-          VfSnapshots.verbose "Deleting #{account.name} #{snapshot.description} [#{idx+1} of #{snaps.length}]"
+          VfSnapshots.verbose "[#{idx+1} of #{snaps.length}] Deleting #{account.name} #{snapshot.description}"
           snapshot.delete
           # puts "Sleeping..."
           # sleep 1

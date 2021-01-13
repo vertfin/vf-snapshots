@@ -322,7 +322,7 @@ module VfSnapshots
     desc 'show-orphans', 'show snapshots not associated with volumes'
     # option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"
     option :verbose, :type => :boolean
-    option :account, :required => true, :desc => 'account name, use show-accounts to view all configured accounts'
+    option :account, :desc => 'account name, use show-accounts to view all configured accounts'
     option :delete, :type => :boolean
     def show_orphans
       VfSnapshots::Config.options = options
@@ -400,11 +400,14 @@ module VfSnapshots
           if account.has_backup?
             backup = Backup.new(account)
             missing = backup.enumerate_missing
-            missing.each do |m|
-              VfSnapshots::verbose m.description
+            if options[:dry_run]
+              VfSnapshots::verbose "Snapshots to backup: #{missing.length}"
+              missing.each do |m|
+                VfSnapshots::verbose "[#{idx+1} of #{missing.lenfth} #{m.description}"
+              end
+            else
+              backup.copy_snapshots! missing unless options[:dry_run]
             end
-            VfSnapshots::verbose "SNAPSHOTS TO COPY: #{missing.length}"
-            backup.copy_snapshots! missing unless options[:dry_run]
           end
 
         rescue Aws::EC2::Errors::AuthFailure
@@ -434,14 +437,15 @@ module VfSnapshots
           if account.has_backup?
             backup = Backup.new(account)
             prunees = backup.enumerate_snapshots_to_be_pruned
-            VfSnapshots::verbose "\n"
-            prunees.each do |snap|
-              VfSnapshots::verbose snap.description
-            end
             VfSnapshots::verbose "SNAPSHOTS TO PRUNE: #{prunees.length}"
-            VfSnapshots::verbose "\n"
-            # puts "----------NOT DELETING----------"  unless options[:dry_run]
-            backup.delete! prunees unless options[:dry_run]
+            if options[:dry_run]
+              VfSnapshots::verbose "Snapshot backups to prune: #{prunees.length}"
+              prunees.each_with_index do |snap,idx|
+                VfSnapshots::verbose "[#{idx+1} of #{prunees.length}] #{snap.description}"
+              end
+            else
+              backup.delete! prunees
+            end
           end
 
         rescue Aws::EC2::Errors::AuthFailure

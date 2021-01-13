@@ -483,5 +483,11 @@ module VfSnapshots
       end
       VfSnapshots::verbose "\n"
     end
+
+    desc 'version', 'show gem version number'
+    def version
+      puts "vf-snapshots version #{VfSnapshots::VERSION}"
+    end
+
   end
 end

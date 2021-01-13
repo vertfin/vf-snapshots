@@ -19,7 +19,7 @@ module VfSnapshots
 
   # a regex to detect snapshots that originated with us
   DESC_REGEX = /\d{14}\ i-/
-  DEFAULT_BACKUP_DAYS = 5
+  DEFAULT_BACKUP_DAYS = 7
 
   def self.verbose message
     puts message if Config.options[:verbose]
@@ -260,7 +260,7 @@ module VfSnapshots
     end
 
     desc 'prune', 'prune old snapshots'
-    option :keep, :desc => 'number of old snapshots to keep, not including monthlies', :default => 5
+    option :keep, :desc => 'number of old snapshots to keep, not including monthlies', :default => DEFAULT_BACKUP_DAYS
     option :keep_monthly, :desc => 'number of old snapshots to keep from the 1st of the month', :default => 3
     option :dry_run, :type => :boolean, :desc => "don't actually prune anything, just tell us what would be deleted"
     option :old_format, :type => :boolean, :desc => "also find snapshots using the original format.  this option will be removed when all of the olds are gone"

@@ -145,13 +145,13 @@ module VfSnapshots
       new_ami.deregister
     end
 
-    def self.get_running account
+    def self.get_running account, options
       account.ec2.instances(
         { filters: [
             { name: 'instance-state-name', values: [ 'running' ] },
           ]
         }
-      ).collect { |ec2_instance| Instance.new(ec2_instance, account.ec2) }
+      ).collect { |ec2_instance| Instance.new(ec2_instance, account.ec2,options) }
     end
 
   end

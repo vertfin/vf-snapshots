@@ -210,7 +210,7 @@ module VfSnapshots
     option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
     def show_snapshots
       VfSnapshots::Config.options = options
-      account = Account.new(options[:account])
+      account = Account.new(options)
       instance = account.find_instance_by_name(options[:name])
 
 #          widths = widths.collect { |w| "%-#{w.to_s}s" }.join(' ') + "\n"
@@ -241,9 +241,12 @@ module VfSnapshots
     option :name, :required => true, :desc => 'instance name'
     option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
     option :date
+    option :security_group_id, :required => false, :desc => "optional security group id override, useful when moving an instance into a vpc.  can be 'none' to not specify at all."
+    option :subnet_id, :required => false, :desc => "optional subnet id, useful when moving an instance into a vpc"
+
     def clone_instance
       VfSnapshots::Config.options = options
-      account = Account.new(options[:account])
+      account = Account.new(options)
       instance = account.find_instance_by_name(options[:name])
       instance.clone
     end

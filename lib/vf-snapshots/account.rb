@@ -1,10 +1,11 @@
 module VfSnapshots
   class Account
 
-    attr_accessor :ec2, :name
+    attr_accessor :ec2, :name, :options
 
-    def initialize account_name
-      @name = account_name
+    def initialize options
+      @options = options
+      @name = @options[:account]
     end
 
     def region
@@ -77,7 +78,7 @@ module VfSnapshots
       )
       raise "Multiple instances found with name: #{instance_name}" if _instances.count > 1
       raise "No instance found with name: #{instance_name}" if _instances.count == 0
-      Instance.new(_instances.first, ec2)
+      Instance.new(_instances.first, ec2, options)
     end
 
     def ec2

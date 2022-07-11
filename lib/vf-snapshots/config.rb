@@ -1,6 +1,6 @@
 module VfSnapshots
   class Config
- 
+
     class << self
       attr_accessor :options
     end
@@ -25,6 +25,15 @@ module VfSnapshots
       seconds_in_an_hour = 60*60
       25*seconds_in_an_hour
     end
+
+    def self.subnet_id
+      config[:subnet_id]
+    end
+
+    def self.security_group_id
+      config[:security_group_id]
+    end
+
   end
 
 end

@@ -1,9 +1,10 @@
 module VfSnapshots
   class Instance
 
-    attr_accessor :ec2, :ec2_instance
+    attr_accessor :ec2, :ec2_instance, :config, :options
 
-    def initialize ec2_instance, ec2
+    def initialize ec2_instance, ec2, options
+      @options = options
       @ec2_instance = ec2_instance
       @ec2          = ec2
     end
@@ -117,6 +118,14 @@ module VfSnapshots
 
       a[:block_device_mappings] = bdm unless bdm.empty?
 
+      if options[:security_group_id]
+        if options[:security_group_id]=='none'
+          a.delete(:security_group_ids)
+        else
+          a[:security_group_ids] = [options[:security_group_id]]
+        end
+      end
+
       a.each_pair do |k,v|
         a.delete(k) if v.nil?
       end
@@ -124,6 +133,10 @@ module VfSnapshots
       [:ramdisk_id, :subnet_id].each do |f|
         v = ec2_instance.send(f)
         a[f] = v unless v.nil?
+      end
+
+      if options[:subnet_id]
+        a[:subnet_id] = options[:subnet_id]
       end
 
       cloned_instance = ec2.create_instances(a)

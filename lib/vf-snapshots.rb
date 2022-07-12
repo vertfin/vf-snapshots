@@ -210,7 +210,7 @@ module VfSnapshots
     option :snapshot_filter, :desc => "beginning snapshot desc to use, partial is ok, i.e. '2014090412', use 'show-snapshots' command to find"
     def show_snapshots
       VfSnapshots::Config.options = options
-      account = Account.new(options)
+      account = Account.new(options[:account])
       instance = account.find_instance_by_name(options[:name])
 
 #          widths = widths.collect { |w| "%-#{w.to_s}s" }.join(' ') + "\n"
@@ -246,7 +246,7 @@ module VfSnapshots
 
     def clone_instance
       VfSnapshots::Config.options = options
-      account = Account.new(options)
+      account = Account.new(options[:account])
       instance = account.find_instance_by_name(options[:name])
       instance.clone
     end

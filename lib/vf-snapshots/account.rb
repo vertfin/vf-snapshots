@@ -1,11 +1,10 @@
 module VfSnapshots
   class Account
 
-    attr_accessor :ec2, :name, :options
+    attr_accessor :ec2, :name
 
-    def initialize options
-      @options = options
-      @name = @options[:account]
+    def initialize account_name
+      @name = account_name
     end
 
     def region
@@ -44,7 +43,7 @@ module VfSnapshots
       return @volumes if @volumes
       @volumes = []
       VfSnapshots::verbose Rainbow("\nLoading volumes for #{name}").green
-      Instance.get_running(self,options).each do |instance|
+      Instance.get_running(self).each do |instance|
         VfSnapshots::verbose Rainbow("  Checking #{name} #{instance.ec2_instance.id} for volumes").blue
         @volumes += instance.volumes # .each do |volume|
 =begin
@@ -78,7 +77,7 @@ module VfSnapshots
       )
       raise "Multiple instances found with name: #{instance_name}" if _instances.count > 1
       raise "No instance found with name: #{instance_name}" if _instances.count == 0
-      Instance.new(_instances.first, ec2, options)
+      Instance.new(_instances.first, ec2)
     end
 
     def ec2

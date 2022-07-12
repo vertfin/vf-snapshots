@@ -1,10 +1,9 @@
 module VfSnapshots
   class Instance
 
-    attr_accessor :ec2, :ec2_instance, :config, :options
+    attr_accessor :ec2, :ec2_instance, :config
 
-    def initialize ec2_instance, ec2, options
-      @options = options
+    def initialize ec2_instance, ec2
       @ec2_instance = ec2_instance
       @ec2          = ec2
     end
@@ -118,11 +117,11 @@ module VfSnapshots
 
       a[:block_device_mappings] = bdm unless bdm.empty?
 
-      if options[:security_group_id]
-        if options[:security_group_id]=='none'
+      if Config.options[:security_group_id]
+        if Config.options[:security_group_id]=='none'
           a.delete(:security_group_ids)
         else
-          a[:security_group_ids] = [options[:security_group_id]]
+          a[:security_group_ids] = [Config.options[:security_group_id]]
         end
       end
 
@@ -135,8 +134,8 @@ module VfSnapshots
         a[f] = v unless v.nil?
       end
 
-      if options[:subnet_id]
-        a[:subnet_id] = options[:subnet_id]
+      if Config.options[:subnet_id]
+        a[:subnet_id] = Config.options[:subnet_id]
       end
 
       cloned_instance = ec2.create_instances(a)
@@ -145,13 +144,13 @@ module VfSnapshots
       new_ami.deregister
     end
 
-    def self.get_running account, options
+    def self.get_running account
       account.ec2.instances(
         { filters: [
             { name: 'instance-state-name', values: [ 'running' ] },
           ]
         }
-      ).collect { |ec2_instance| Instance.new(ec2_instance, account.ec2,options) }
+      ).collect { |ec2_instance| Instance.new(ec2_instance, account.ec2) }
     end
 
   end

@@ -34,7 +34,9 @@ module VfSnapshots
     end
 
     def name
-      "#{instance_id} #{instance.tags.find { |t| t.key=='Name' }.value} #{ec2_volume.size}GB #{instance.public_ip_address} #{attachment.device.to_s}"
+      n = instance.tags.find { |t| t.key=='Name' }
+      n = n.value if n.respond_to?(:value)
+      "#{instance_id} #{n} #{ec2_volume.size}GB #{instance.public_ip_address} #{attachment.device.to_s}"
     end
 
     def other_details

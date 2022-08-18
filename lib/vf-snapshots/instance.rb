@@ -136,6 +136,7 @@ module VfSnapshots
 
       if Config.options[:subnet_id]
         a[:subnet_id] = Config.options[:subnet_id]
+        a.delete(:placement)
       end
 
       cloned_instance = ec2.create_instances(a)

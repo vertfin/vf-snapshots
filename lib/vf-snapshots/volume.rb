@@ -27,16 +27,16 @@ module VfSnapshots
       # we'll only get here with volumes that have ONE attachment
       ec2_volume.attachments.each do |attachment|
         @attachment = attachment
-        @instance_id = attachment.instance_id
+        @instance_id = attachment[:instance_id]
       end
       # get the instance
       @instance = ec2.instance( @instance_id )
     end
 
     def name
-      n = instance.tags.find { |t| t.key=='Name' }
+      n = instance.tags.find { |t| t[:key]=='Name' }
       n = n.value if n.respond_to?(:value)
-      "#{instance_id} #{n} #{ec2_volume.size}GB #{instance.public_ip_address} #{attachment.device.to_s}"
+      "#{instance_id} #{n} #{ec2_volume.size}GB #{instance.public_ip_address} #{attachment[:device].to_s}"
     end
 
     def other_details

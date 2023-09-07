@@ -15,7 +15,7 @@ module VfSnapshots
           ]
         }
       ).collect { |ec2_volume|
-        VfSnapshots::verbose Rainbow("    adding #{ec2_volume.size.to_s}GB volume mounted at #{ec2_volume.attachments.first.device.to_s}").white
+        VfSnapshots::verbose Rainbow("    adding #{ec2_volume.size.to_s}GB volume mounted at #{ec2_volume.attachments.first[:device].to_s}").white
 
         Volume.new(ec2_volume, ec2)
       }
